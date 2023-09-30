@@ -1,0 +1,160 @@
+use glfw::{Action, Context, Key};
+use gl::*;
+use cgmath::*;
+
+use std::sync::mpsc::Receiver;
+use std::ffi::CStr;
+
+mod shader;
+mod vo;
+mod util;
+mod camera;
+
+use crate::vo::*;
+
+macro_rules! c_str {
+    ($literal:expr) => {
+        CStr::from_bytes_with_nul_unchecked(concat!($literal, "\0").as_bytes())
+    }
+}
+
+const VS: &str = r#"
+    #version 330 core
+    layout (location = 0) in vec3 aPos;
+
+    void main() {
+        //gl_Position = projection * view * model * vec4(aPos, 1.0f);
+        gl_Position = vec4(aPos, 1.0);
+    }
+"#;
+
+const FS: &str = r#"
+    #version 330 core
+    out vec4 FragColor;
+
+    void main() {
+        FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+    }
+"#;
+
+const MAGO: [&str; 3] = [
+    "CONTEMPLEM O MAGO",
+    "COM SEUS PODERES",
+    "INCRÍVEIS PODERES",
+];
+
+use std::time::Instant;
+use std::cell::Cell;
+
+thread_local!{
+    pub static START: Cell<Instant> = Cell::new( Instant::now() );
+}
+
+pub fn get_time_i32() -> i32 {
+    let start = START.with(|start| start.get());
+    start.elapsed().as_secs_f32() as i32
+}
+
+fn main() {
+    let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+    let _rng = rand::thread_rng();
+
+    let (mut window, events) = glfw.create_window(
+        300, 
+        300, 
+        "😎 contemplem o mago 😎", 
+        glfw::WindowMode::Windowed
+    ).expect("failed to create GLFW window");
+
+    window.set_key_polling(true);
+    window.make_current();
+
+    gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
+
+    let (shader, vbo) = unsafe {
+        Enable(DEPTH_TEST);
+
+        let shader = shader::Shader::pipeline(FS, VS);
+
+        let vertices: Vec<f32> = vec![
+            -0.5, -0.5, 1.0,
+            0.5, -0.5, -1.0,
+            0.0, 0.5, 0.0,
+        ];
+        let (mut vbo, mut vao) = (0, 0);
+        GenVertexArrays(1, &mut vao);
+        GenBuffers(1, &mut vbo);
+
+        BindVertexArray(vao);
+
+        BindBuffer(ARRAY_BUFFER, vbo);
+        BufferData(
+            ARRAY_BUFFER,
+            (vertices.len() * std::mem::size_of::<gl::types::GLfloat>()) as gl::types::GLsizeiptr,
+            &vertices[0] as *const f32 as *const std::ffi::c_void,
+            STATIC_DRAW,
+        );
+        let stride = 5 * std::mem::size_of::<gl::types::GLfloat>() as gl::types::GLsizei;
+        VertexAttribPointer(0, 3, FLOAT, FALSE, stride, std::ptr::null());
+        EnableVertexAttribArray(0);
+
+        (shader, VBO)
+    };
+
+    
+    unsafe {
+        shader.use_program();
+
+        let projection: Matrix4<f32> = perspective(Deg(45.0), 1.0, 1.0, 100.0);
+        let model: Matrix4<f32> = 
+            Matrix4::from_translation(vec3(0.0, 0.0, 0.0));
+
+        shader.set_mat4(c_str!("projection"), &projection);
+        shader.set_mat4(c_str!("model"), &model);
+    }
+    while !window.should_close() {
+        let time = glfw.get_time() as f32;
+
+        process_events(&mut window, &events);
+
+        window.set_title(MAGO[time as usize % MAGO.len()]);
+
+        //render
+        unsafe {
+            ClearColor(0.2, 0.3, 0.4, 1.0);
+            Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
+            
+            let radius = 10.0;
+            let cam_x = time.sin() as f32 * radius;
+            let cam_z = time.cos() as f32 * radius;
+            let view = Matrix4::look_at_rh(
+                Point3::new(cam_x, 0.0, cam_z), 
+                Point3::new(0.0, 0.0, 0.0),
+                vec3(0.0, 1.0, 0.0),
+            );
+
+            shader.set_f(c_str!("iTime"), time);
+            shader.set_mat4(c_str!("view"), &view);
+
+            DrawArrays(TRIANGLES, 0, 3);
+        }
+
+        window.swap_buffers();
+        glfw.poll_events();
+    }
+}
+
+fn process_events(window: &mut glfw::Window, events: &Receiver<(f64, glfw::WindowEvent)>) {
+    for (_, event) in glfw::flush_messages(events) {
+        match event {
+            glfw::WindowEvent::FramebufferSize(width, height) => {
+                unsafe { 
+                    gl::Viewport(0, 0, width, height); 
+                }
+            }
+            glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => window.set_should_close(true),
+            _ => {}
+        }
+    }
+}
+

@@ -1,39 +1,71 @@
-use gl::types::*;
 use gl::*;
+use gl::types::*;
 
-use std::ffi::CString;
+use cgmath::*;
+
 use std::ptr;
+use std::ffi::CStr;
 
-pub unsafe fn create_shader_program(shader_type: GLenum, code: &str) -> u32 {
-    let shader = shader(shader_type, code);
-    let program = link_shader(shader);
-
-    DeleteShader(shader);
-
-    program
+pub struct Shader {
+    pub id: u32,
 }
 
-pub unsafe fn shader(shader_type: GLenum, code: &str) -> u32 {
-    let shader = CreateShader(shader_type);
-    let shader_cstring = CString::new(code.as_bytes()).unwrap();
-    ShaderSource(shader, 1, &shader_cstring.as_ptr(), ptr::null());
-    CompileShader(shader);
+impl Shader {
+    pub unsafe fn new(shader_type: GLenum, code: &str) -> Self {
+        let shader = CreateShader(shader_type);
+        let cstr = std::ffi::CString::new(code.as_bytes()).unwrap();
+        ShaderSource(shader, 1, &cstr.as_ptr(), std::ptr::null());
+        CompileShader(shader);
+        check_shader_error(shader);
 
-    // check for errors
-    check_shader_error(shader);
+        let id = CreateProgram();
+        AttachShader(id, shader);
+        LinkProgram(id);
+        check_shader_link_error(id);
 
-    shader
-}
+        DeleteShader(shader);
 
-pub unsafe fn link_shader(shader: u32) -> u32 {
-    let shader_program = CreateProgram();
-    AttachShader(shader_program, shader);
-    LinkProgram(shader_program);
+        Self { id }
+    }
 
-    //check for errors
-    check_shader_link_error(shader_program);
+    pub unsafe fn new_pipeline(vs_code: &str, fs_code: &str) -> Self {
+        let vs = CreateShader(VERTEX_SHADER);
+        let cstr = std::ffi::CString::new(vs_code.as_bytes()).unwrap();
+        ShaderSource(vs, 1, &cstr.as_ptr(), std::ptr::null());
+        CompileShader(vs);
+        check_shader_error(vs);
 
-    shader_program
+        let fs = CreateShader(FRAGMENT_SHADER);
+        let cstr = std::ffi::CString::new(fs_code.as_bytes()).unwrap();
+        ShaderSource(fs, 1, &cstr.as_ptr(), std::ptr::null());
+        CompileShader(fs);
+        check_shader_error(fs);
+
+        let id = CreateProgram();
+        AttachShader(id, vs);
+        AttachShader(id, fs);
+        LinkProgram(id);
+        check_shader_link_error(id);
+
+        Self { id }
+    }
+
+    pub unsafe fn use_shader(&self) {
+        UseProgram(self.id);
+    }
+
+    pub unsafe fn uniform_1f(&self, name: &CStr, val: f32) {
+        Uniform1f(GetUniformLocation(self.id, name.as_ptr()), val);
+    }
+
+    pub unsafe fn uniform_mat4fv(&self, name: &CStr, mat: &Matrix4<f32>) {
+        UniformMatrix4fv(
+            GetUniformLocation(self.id, name.as_ptr()), 
+            1, 
+            FALSE, 
+            mat.as_ptr()
+        );
+    }
 }
 
 pub unsafe fn check_shader_error(shader: u32) {
