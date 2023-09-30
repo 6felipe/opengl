@@ -6,7 +6,12 @@ use std::cell::RefCell;
 
 mod shader;
 mod vbo;
+mod camera;
+mod util;
+
 use crate::shader::Shader;
+use crate::camera::Camera;
+use crate::util::*;
 
 const VS: &str = r#"
     #version 330 core
@@ -48,6 +53,7 @@ fn main() {
     ).expect("failed to create glfw window");
 
     window.make_current();
+    //glfw.set_swap_interval(glfw::SwapInterval::Sync(0));
     window.set_key_polling(true);
     window.set_framebuffer_size_polling(true);
 
@@ -65,15 +71,16 @@ fn main() {
         (shader, vbo, vao)
     };
 
-    let proj = perspective(Deg(45.0), 1.0, 1.0, 100.0);
+    let mut camera = Camera::new();
 
     unsafe {
         shader.use_shader();
 
-        shader.uniform_mat4fv(&"proj".to_cstr().unwrap(), &proj);
+        shader.uniform_mat4fv(&"proj".to_cstr().unwrap(), &camera.proj);
     }
     while !window.should_close() {
         process_events(&mut window, &events);
+        camera.input(&mut window, &glfw);
         let time = glfw.get_time() as f32;
 
         unsafe {
@@ -82,15 +89,8 @@ fn main() {
 
             shader.uniform_1f(&"time".to_cstr().unwrap(), time);
 
-            let radius = 2.0;
-            let cam_x = time.sin() as f32 * radius;
-            let cam_z = time.cos() as f32 * radius;
-            let view = Matrix4::look_at_rh(
-                Point3::new(cam_x, 0.0, cam_z), 
-                Point3::new(0.0, 0.0, 0.0),
-                vec3(0.0, 1.0, 0.0),
-            );
-            shader.uniform_mat4fv(&"view".to_cstr().unwrap(), &view);
+            camera.update();
+            shader.uniform_mat4fv(&"view".to_cstr().unwrap(), &camera.view);
 
             let model = Matrix4::from_translation(vec3(0.0, 0.0, 0.0)); 
             shader.uniform_mat4fv(&"model".to_cstr().unwrap(), &model);
@@ -104,34 +104,4 @@ fn main() {
     }
 }
 
-use std::sync::mpsc::Receiver;
-fn process_events(window: &mut glfw::Window, events: &Receiver<(f64, glfw::WindowEvent)>) {
-    for (_, event) in glfw::flush_messages(events) {
-        match event {
-            glfw::WindowEvent::FramebufferSize(width, height) => {
-                unsafe { 
-                    gl::Viewport(0, 0, width, height); 
-                }
-            }
-            glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => window.set_should_close(true),
-            glfw::WindowEvent::Key(Key::F2, _, Action::Press, _) => {
-                unsafe { PolygonMode(FRONT_AND_BACK, LINE); }
-            }
-            glfw::WindowEvent::Key(Key::F3, _, Action::Press, _) => {
-                unsafe { PolygonMode(FRONT_AND_BACK, FILL); }
-            }
-            _ => {}
-        }
-    }
-}
 
-use std::ffi::{CString, NulError};
-trait ToCStr {
-    fn to_cstr(&self) -> Result<CString, NulError>;
-}
-
-impl ToCStr for str {
-    fn to_cstr(&self) -> Result<CString, NulError> {
-        CString::new(self)
-    }
-}
