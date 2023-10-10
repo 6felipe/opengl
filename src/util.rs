@@ -1,8 +1,15 @@
 use gl::*;
-use glfw::{Action, Key,};
+use glfw::{self, Action, Key}; 
+use crate::camera::Camera;
+use crate::ui::Imgui;
 
 use std::sync::mpsc::Receiver;
-pub fn process_events(window: &mut glfw::Window, events: &Receiver<(f64, glfw::WindowEvent)>) {
+pub fn process_events(
+    window: &mut glfw::Window, 
+    camera: &mut Camera,
+    gui: &mut Imgui,
+    events: &Receiver<(f64, glfw::WindowEvent)>,
+) {
     for (_, event) in glfw::flush_messages(events) {
         match event {
             glfw::WindowEvent::FramebufferSize(width, height) => {
@@ -17,6 +24,12 @@ pub fn process_events(window: &mut glfw::Window, events: &Receiver<(f64, glfw::W
             }
             glfw::WindowEvent::Key(Key::F3, _, Action::Press, _) => {
                 unsafe { PolygonMode(FRONT_AND_BACK, FILL); }
+            }
+            glfw::WindowEvent::Key(Key::F1, _, Action::Press, _) => {
+                unsafe { PolygonMode(FRONT_AND_BACK, POINT); }
+            }
+            glfw::WindowEvent::CursorPos(xpos, ypos) => {
+                camera.mouse_callback(xpos as f32, ypos as f32);
             }
             _ => {}
         }

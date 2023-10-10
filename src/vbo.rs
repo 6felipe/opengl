@@ -4,14 +4,15 @@ use std::mem;
 use std::ptr;
 use gl::types::*;
 
-pub const QUAD: [f32; 12] = [
-     0.5,  0.5, 0.0,  // top right
-     0.5, -0.5, 0.0,  // bottom right
-    -0.5, -0.5, 0.0,  // bottom left
-    -0.5,  0.5, 0.0   // top left
+pub const VERTICES: [f32; 9] = [
+    -1.0, -1.0, 1.0,
+    1.0, -1.0, 1.0,
+    1.0, 1.0, 1.0,
 ];
 
-pub const QUAD_INDICES: [i32; 6] = [ 0, 1, 3,  1, 2, 3];
+pub const INDICES: [u32; 3] = [
+    0, 1, 2
+];
 
 pub struct VBO {
     vbo: u32,
@@ -20,7 +21,7 @@ pub struct VBO {
 }
 
 impl VBO {
-    pub unsafe fn new(vertices: Vec<f32>) -> (u32, u32) {
+    pub unsafe fn new(vertices: &Vec<f32>) -> (u32, u32) {
         let (mut vbo, mut vao) = (0, 0);
         let vertex_ammount = (vertices.len() / 3) as i32;
         
@@ -43,7 +44,7 @@ impl VBO {
             3, 
             FLOAT, 
             FALSE, 
-            vertex_ammount * mem::size_of::<GLfloat>() as GLsizei, 
+            3 * mem::size_of::<GLfloat>() as GLsizei, 
             ptr::null()
         );
         EnableVertexAttribArray(0);
@@ -55,12 +56,13 @@ impl VBO {
 
         (vbo, vao)
     }
+
     pub unsafe fn new_indexed(
-        vertices: Vec<f32>, 
-        indices: Vec<i32>
+        vertices: &Vec<f32>, 
+        indices: &Vec<u32>
     ) -> (u32, u32, u32) {
         let (mut vbo, mut vao, mut ebo) = (0, 0, 0);
-        let vertex_ammount = (vertices.len() / 3) as i32;
+        let vertex_ammount = (vertices.len() / 3) as usize;
         
         GenVertexArrays(1, &mut vao);
         GenBuffers(1, &mut vbo);
@@ -73,32 +75,30 @@ impl VBO {
         BufferData(
             ARRAY_BUFFER,
             (vertices.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
-            &vertices[0] as *const f32 as *const c_void,
+            vertices.as_ptr() as *const c_void,
             STATIC_DRAW
         );
 
         BindBuffer(ELEMENT_ARRAY_BUFFER, ebo);
         BufferData(
             ELEMENT_ARRAY_BUFFER,
-            (indices.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
-            &indices[0] as *const i32 as *const c_void,
+            (indices.len() * mem::size_of::<GLuint>()) as GLsizeiptr,
+            indices.as_ptr() as *const c_void,
             STATIC_DRAW
         );
-
+        
         VertexAttribPointer(
             0, 
             3, 
             FLOAT, 
             FALSE, 
-            vertex_ammount * mem::size_of::<GLfloat>() as GLsizei, 
+            (3 * mem::size_of::<GLfloat>()) as GLsizei, 
             ptr::null()
         );
         EnableVertexAttribArray(0);
 
-
+        //unbind everything but the ebo
         BindBuffer(ARRAY_BUFFER, 0);
-
-        //unbind everything
         BindVertexArray(0);
 
         (vbo, ebo, vao)
