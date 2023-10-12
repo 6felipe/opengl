@@ -66,6 +66,13 @@ impl Shader {
             mat.as_ptr()
         );
     }
+
+    pub unsafe fn uniform_vec3f(&self, name: &CStr, vec: &Vector3<f32>) {
+        Uniform3f(
+            GetUniformLocation(self.id, name.as_ptr()),
+            vec.x, vec.y, vec.z
+        );
+    }
 }
 
 pub unsafe fn check_shader_error(shader: u32) {

@@ -9,10 +9,6 @@ pub struct Imgui<'ctx> {
     /* 
      * INPUT IS YET TO BE IMPLEMENTED
      */
-    mouse_press: [bool; 5],
-    cursor_pos: (f64, f64),
-    cursor: (MouseCursor, Option<glfw::StandardCursor>),
-
 
     renderer: Renderer,
     ctx: &'ctx mut Context,
@@ -24,9 +20,6 @@ impl <'ctx>Imgui<'ctx> {
 
         Self {
             last_frame: window.glfw.get_time(),
-            mouse_press: [false; 5],
-            cursor_pos: (0., 0.,),
-            cursor: (MouseCursor::Arrow, None),
 
             renderer, 
             ctx,
@@ -45,6 +38,14 @@ impl <'ctx>Imgui<'ctx> {
         io.display_size = [w as f32, h as f32];
 
         self.ctx.frame()
+    }
+
+    pub fn handle_mouse(&mut self, xpos: f32, ypos: f32, window: &glfw::Window) {
+        if window.get_cursor_mode() == glfw::CursorMode::Disabled {
+            self.ctx.io_mut().mouse_pos = [0., 0.];
+        } else {
+            self.ctx.io_mut().mouse_pos = [xpos, ypos];
+        }
     }
 
     pub fn draw(&mut self) {

@@ -28,8 +28,16 @@ pub fn process_events(
             glfw::WindowEvent::Key(Key::F1, _, Action::Press, _) => {
                 unsafe { PolygonMode(FRONT_AND_BACK, POINT); }
             }
+            glfw::WindowEvent::Key(Key::LeftAlt, _, Action::Press, _) => {
+                if window.get_cursor_mode() == glfw::CursorMode::Disabled {
+                    window.set_cursor_mode(glfw::CursorMode::Normal);
+                } else {
+                    window.set_cursor_mode(glfw::CursorMode::Disabled);
+                }
+            }
             glfw::WindowEvent::CursorPos(xpos, ypos) => {
-                camera.mouse_callback(xpos as f32, ypos as f32);
+                gui.handle_mouse(xpos as f32, ypos as f32, &window);
+                camera.mouse_callback(xpos as f32, ypos as f32, &window);
             }
             _ => {}
         }
@@ -46,3 +54,17 @@ impl ToCStr for str {
         CString::new(self)
     }
 }
+
+use cgmath::*;
+pub fn usize_as_vec3(
+    usize: usize, 
+    max: f32, 
+    max_x: f32, max_y: f32, max_z: f32
+) -> Vector3<f32> {
+    let usize = usize::min(max as usize, usize::max(usize, 0));
+
+    let frac_val = usize as f32 / max;
+
+    vec3(frac_val * max_x, frac_val * max_y, frac_val * max_z)
+}
+

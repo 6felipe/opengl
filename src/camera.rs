@@ -110,8 +110,10 @@ impl Camera {
     pub fn mouse_callback(
         &mut self, 
         xpos: f32, 
-        ypos: f32
+        ypos: f32,
+        window: &glfw::Window,
     ) {
+        if window.get_cursor_mode() != glfw::CursorMode::Disabled { return };
         if self.first_mouse { 
             self.last_x = xpos;
             self.last_y = ypos;

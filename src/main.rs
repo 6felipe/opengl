@@ -8,6 +8,7 @@ mod camera;
 mod util;
 mod terrain;
 mod ui;
+mod mesh;
 
 use crate::shader::Shader;
 use crate::camera::Camera;
@@ -21,10 +22,13 @@ const VS: &str = r#"
     uniform mat4 view;
     uniform mat4 proj;
 
+    uniform vec3 offsets[100];
+
     uniform float time;
 
     void main() {
-       gl_Position = proj * view * model * vec4(aPos, 1.0);
+        vec3 offset = offsets[gl_InstanceID];
+        gl_Position = proj * view * model * vec4(aPos + offset, 1.0);
     }
 "#;
 
@@ -66,32 +70,27 @@ fn main() {
     //gl
     load_with(|s| window.get_proc_address(s) as * const _);
 
-    let (shader, _vbo, vao, indices) = unsafe {
-        let shader = Shader::new_pipeline(VS, FS);
+    let grid = terrain::grid(32, 32, 1.0);
+    let mesh = mesh::Mesh::new(&grid.0, &grid.1);
 
-        let grid = terrain::grid(32, 32, 1.0);
-        let (vbo, _ebo, vao) = vbo::VBO::new_indexed(
-            &grid.0,
-            &grid.1,
-        );
-
-        (shader, vbo, vao, grid.1)
-    };
     let mut camera = Camera::new();
-    let size = indices.len() as i32;
+    let size = mesh.indices.len() as i32;
 
-    unsafe {
+    let shader = unsafe {
         Enable(BLEND);
         BlendFunc(SRC_ALPHA, ONE_MINUS_SRC_ALPHA);
         Enable(DEPTH_TEST);
         DepthFunc(LESS);
 
-        shader.use_shader();
-        BindVertexArray(vao);
-        shader.uniform_mat4fv(&"proj".to_cstr().unwrap(), &camera.proj);
 
         PointSize(3.0);
         LineWidth(3.0);
+
+        shader::Shader::new_pipeline(VS, FS)
+    }; 
+    unsafe {
+        shader.use_shader();
+        shader.uniform_mat4fv(&"proj".to_cstr().unwrap(), &camera.proj);
     }
     window.set_cursor_mode(glfw::CursorMode::Disabled);
 
@@ -101,7 +100,12 @@ fn main() {
 
     let mut ctx = imgui::Context::create();
     let mut gui = ui::Imgui::new(&mut ctx, &mut window);
-
+    let model = Matrix4::from_translation(vec3(0.0, 0.0, 0.0));
+    
+    let mut offsets: Vec<Vector3<f32>> = vec![];
+    for i in 0..=100 {
+        offsets.push(vec3(0.0,0.0, i as f32));
+    }
 
     while !window.should_close() {
         process_events(
@@ -116,20 +120,20 @@ fn main() {
         dt = curr_frame - last_frame; last_dts.push(dt);
         last_frame = curr_frame;
         
-        let average_dt: f64 = last_dts.as_slice().iter().sum::<f64>() / last_dts.len() as f64;
+        let average_dt: f64 = 
+            last_dts.as_slice().iter().sum::<f64>() / last_dts.len() as f64;
         if last_dts.len() > 512 { last_dts.remove(0); }
 
         let ui = gui.frame(&mut window); 
-        ui.tooltip_text(format!("delta(ms): {:.4} framerate: {:.4} average(512): {:.4} time: {:.4}", 
-                                dt * 1000.0,
-                                1./dt,
-                                1./average_dt,
-                                time,
-                            ));
-        ui.tooltip_text("controls: F1, F2, F3 - switch view mode; GUI input is not currently supported");
-        // ui.tooltip_text(format!("device: {:?}", glfw.set_time))
-        // let ui = imgui_glfw.frame(&mut window, &mut imgui);
-        // ui::run(&ui, &glfw, &mut window, dt); 
+        if window.get_cursor_mode() == glfw::CursorMode::Disabled {
+            ui.tooltip_text(format!("delta(ms): {:.4} framerate: {:.4} average(512): {:.4} time: {:.4}", 
+                                    dt * 1000.0,
+                                    1./dt,
+                                    1./average_dt,
+                                    time,
+                                ));
+            ui.tooltip_text("controls: F1, F2, F3 - switch view mode; GUI input is not currently supported");
+        }
 
         unsafe {
             ClearColor(0.2, 0.3, 0.3, 1.0);
@@ -138,9 +142,15 @@ fn main() {
             shader.uniform_1f(&"time".to_cstr().unwrap(), time as f32);
             camera.update();
             shader.uniform_mat4fv(&"view".to_cstr().unwrap(), &camera.view);
-            let model = Matrix4::from_translation(vec3(0.0, 0.0, 0.0)); 
             shader.uniform_mat4fv(&"model".to_cstr().unwrap(), &model);
-            DrawElements(TRIANGLES, size, UNSIGNED_INT, std::ptr::null());
+            for i in 0..=100 {
+                let string = format!("offsets[{i}]");
+                shader.uniform_vec3f(
+                    &string.to_cstr().unwrap(), 
+                    &offsets[i]
+                );
+            }
+            mesh.draw_instanced(100);
         }
 
         gui.draw();
