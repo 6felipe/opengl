@@ -36,8 +36,14 @@ pub fn process_events(
                 }
             }
             glfw::WindowEvent::CursorPos(xpos, ypos) => {
-                gui.handle_mouse(xpos as f32, ypos as f32, &window);
+                gui.on_mouse_move(xpos as f32, ypos as f32, &window);
                 camera.mouse_callback(xpos as f32, ypos as f32, &window);
+            }
+            glfw::WindowEvent::MouseButton(button, action, _) => {
+                gui.on_mouse_click(button, action);
+            }
+            glfw::WindowEvent::Scroll(x, y) => {
+                gui.on_mouse_scroll(x as f32, y as f32);
             }
             _ => {}
         }

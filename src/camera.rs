@@ -113,7 +113,10 @@ impl Camera {
         ypos: f32,
         window: &glfw::Window,
     ) {
-        if window.get_cursor_mode() != glfw::CursorMode::Disabled { return };
+        if window.get_cursor_mode() != glfw::CursorMode::Disabled {
+            self.first_mouse = true;
+            return 
+        };
         if self.first_mouse { 
             self.last_x = xpos;
             self.last_y = ypos;

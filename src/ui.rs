@@ -40,12 +40,43 @@ impl <'ctx>Imgui<'ctx> {
         self.ctx.frame()
     }
 
-    pub fn handle_mouse(&mut self, xpos: f32, ypos: f32, window: &glfw::Window) {
+    pub fn on_mouse_move(
+        &mut self, xpos: f32, ypos: f32, window: &glfw::Window
+    ) {
         if window.get_cursor_mode() == glfw::CursorMode::Disabled {
             self.ctx.io_mut().mouse_pos = [0., 0.];
         } else {
             self.ctx.io_mut().mouse_pos = [xpos, ypos];
         }
+    }
+    pub fn on_mouse_click(
+        &mut self, button: glfw::MouseButton, action: glfw::Action,
+    ) {
+        let is_pressed = if action == glfw::Action::Press {true} else {false};
+
+        match button {
+            glfw::MouseButton::Button1 => { 
+                self.ctx.io_mut().mouse_down[0] = is_pressed;
+            },
+            glfw::MouseButton::Button2 => {
+                self.ctx.io_mut().mouse_down[1] = is_pressed;
+            },
+            glfw::MouseButton::Button3 => {
+                self.ctx.io_mut().mouse_down[2] = is_pressed;
+            },
+            glfw::MouseButton::Button4 => {
+                self.ctx.io_mut().mouse_down[3] = is_pressed;
+            },
+            glfw::MouseButton::Button5 => {
+                self.ctx.io_mut().mouse_down[4] = is_pressed;
+            },
+            _ => {},
+        }
+    }
+
+    pub fn on_mouse_scroll(&mut self, x: f32, y: f32) {
+        self.ctx.io_mut().mouse_wheel = y;
+        self.ctx.io_mut().mouse_wheel_h = x;
     }
 
     pub fn draw(&mut self) {

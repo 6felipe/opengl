@@ -65,6 +65,8 @@ fn main() {
     glfw.set_swap_interval(glfw::SwapInterval::Sync(0));
     window.set_cursor_pos_polling(true);
     window.set_key_polling(true);
+    window.set_scroll_polling(true);
+    window.set_mouse_button_polling(true);
     window.set_framebuffer_size_polling(true);
 
     //gl
@@ -133,6 +135,9 @@ fn main() {
                                     time,
                                 ));
             ui.tooltip_text("controls: F1, F2, F3 - switch view mode; GUI input is not currently supported");
+            
+        } else {
+            ui.show_demo_window(&mut true);
         }
 
         unsafe {
